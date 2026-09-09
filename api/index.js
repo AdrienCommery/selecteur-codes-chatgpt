@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   registerAppResource,
@@ -11,10 +11,30 @@ import { z } from "zod";
 
 const rootDir = process.cwd();
 const widgetHtml = readFileSync(path.join(rootDir, "public", "widget.html"), "utf8");
-const commands = readFileSync(path.join(rootDir, "data", "commands_fr.jsonl"), "utf8")
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => JSON.parse(line))
+
+const dataDir = path.join(rootDir, "data");
+const commandFiles = readdirSync(dataDir)
+  .filter((name) => /^commands_fr(?:_\d{4}_\d{4})?\.jsonl$/.test(name))
+  .sort((a, b) => {
+    if (a === "commands_fr.jsonl") return -1;
+    if (b === "commands_fr.jsonl") return 1;
+    return a.localeCompare(b);
+  });
+
+const commandRows = commandFiles.flatMap((fileName) =>
+  readFileSync(path.join(dataDir, fileName), "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+);
+
+const commandRowsById = new Map();
+for (const row of commandRows) {
+  if (!commandRowsById.has(row.id)) commandRowsById.set(row.id, row);
+}
+
+const commands = Array.from(commandRowsById.values())
+  .sort((a, b) => a.id - b.id)
   .map((row) => ({
     id: row.id,
     code: row.code,
